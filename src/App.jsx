@@ -1,6 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import {
   UploadCloud, FileVideo, Music, Play, Pause, Download, X, Loader2,
   CheckCircle2, AlertCircle, RotateCcw, Sparkles, Zap, AudioLines, Headphones,
@@ -82,6 +80,11 @@ export default function App() {
     if (ffmpegRef.current?.loaded) return Promise.resolve(ffmpegRef.current);
     if (loadingRef.current) return loadingRef.current;
     loadingRef.current = (async () => {
+      // Chargé à la demande : la page s'affiche même si le moteur met du temps
+      const [{ FFmpeg }, { toBlobURL }] = await Promise.all([
+        import("@ffmpeg/ffmpeg"),
+        import("@ffmpeg/util"),
+      ]);
       const ffmpeg = new FFmpeg();
       ffmpeg.on("log", ({ message }) => { logsRef.current.push(message); });
       ffmpeg.on("progress", ({ progress: p }) => {
@@ -154,7 +157,7 @@ export default function App() {
         mounted = true;
         inPath = `${MOUNT}/${file.name}`;
       } catch {
-        await ffmpeg.writeFile(inName, await fetchFile(file));
+        await ffmpeg.writeFile(inName, new Uint8Array(await file.arrayBuffer()));
         wroteInput = true;
         inPath = inName;
       }
@@ -531,4 +534,4 @@ function ResultCard({ result, onReset }) {
       </div>
     </div>
   );
-}s
+}ssss
