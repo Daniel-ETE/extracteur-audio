@@ -534,4 +534,4 @@ function ResultCard({ result, onReset }) {
       </div>
     </div>
   );
-}ssss
+}
