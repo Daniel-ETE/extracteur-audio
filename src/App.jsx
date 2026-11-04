@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
-  UploadCloud, FileVideo, Music, Play, Pause, Download, X, Loader2,
-  CheckCircle2, AlertCircle, RotateCcw, Sparkles, Zap, AudioLines, Headphones,
+  CloudUpload, FileVideo, Music, Play, Pause, Download, X, LoaderCircle,
+  CircleCheck, CircleAlert, RotateCcw, Sparkles, Zap, AudioLines, Headphones,
 } from "lucide-react";
 
 /* ---------- Constantes ---------- */
@@ -107,8 +107,9 @@ export default function App() {
   const probeAudioCodec = async (ffmpeg, inPath) => {
     logsRef.current = [];
     await ffmpeg.exec(["-hide_banner", "-i", inPath]).catch(() => {});
-    const match = logsRef.current.join("\n").match(/Audio:\s*([a-z0-9_]+)/i);
-    return match ? match[1].toLowerCase() : null;
+    const text = logsRef.current.join("\n");
+    const match = text.match(/Audio:\s*([a-z0-9_]+)/i);
+    return { codec: match ? match[1].toLowerCase() : null, probed: /Stream #/i.test(text) };
   };
 
   const reset = () => {
@@ -162,13 +163,19 @@ export default function App() {
         inPath = inName;
       }
 
+      let encoder = fmt;
       if (format !== "wav") {
-        const codec = await probeAudioCodec(ffmpeg, inPath);
+        const { codec, probed } = await probeAudioCodec(ffmpeg, inPath);
         if (format === "copy") {
-          if (!codec) throw new Error("Aucune piste audio détectée dans cette vidéo.");
-          copy = true;
-          outExt = COPY_EXT[codec] ?? "mka";
-          outMime = COPY_MIME[outExt] ?? "audio/x-matroska";
+          if (codec) {
+            copy = true;
+            outExt = COPY_EXT[codec] ?? "mka";
+            outMime = COPY_MIME[outExt] ?? "audio/x-matroska";
+          } else if (probed) {
+            throw new Error("Cette vidéo ne contient pas de piste audio.");
+          } else {
+            encoder = FORMATS.aac; // détection impossible : encodage AAC de secours
+          }
         } else if (codec === format) {
           copy = true; // même codec que la source : copie directe, instantanée
         }
@@ -177,7 +184,7 @@ export default function App() {
 
       const code = await ffmpeg.exec([
         "-i", inPath, "-map", "0:a:0", "-vn", "-sn", "-dn",
-        ...(copy ? ["-c:a", "copy"] : fmt.args(bitrate)),
+        ...(copy ? ["-c:a", "copy"] : encoder.args(bitrate)),
         "-y", outName,
       ]);
       if (code !== 0) throw new Error("La conversion a échoué (la vidéo n'a peut-être pas de piste audio).");
@@ -262,7 +269,7 @@ export default function App() {
               <Sparkles className="h-3.5 w-3.5" /> 100% local · aucun envoi
             </span>
             <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors duration-500 ${engineReady ? "border-[#849B89]/30 bg-[#849B89]/15 text-[#6E8574]" : "border-[#F3EDE4] bg-[#F3EDE4] text-[#6b7a70]"}`}>
-              {engineReady ? <Zap className="h-3.5 w-3.5" /> : <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {engineReady ? <Zap className="h-3.5 w-3.5" /> : <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
               {engineReady ? "Moteur prêt" : "Préparation du moteur…"}
             </span>
           </div>
@@ -302,7 +309,7 @@ export default function App() {
                   ))}
                 </div>
                 <span className={`relative flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-lg shadow-[#849B89]/20 ${dragging ? "anim-ring" : ""}`}>
-                  <UploadCloud className={`h-10 w-10 transition-all duration-300 ${dragging ? "-translate-y-1 text-[#C86D51]" : "text-[#6E8574] group-hover:-translate-y-1 group-hover:text-[#C86D51]"}`} />
+                  <CloudUpload className={`h-10 w-10 transition-all duration-300 ${dragging ? "-translate-y-1 text-[#C86D51]" : "text-[#6E8574] group-hover:-translate-y-1 group-hover:text-[#C86D51]"}`} />
                 </span>
                 <p className="ff-display relative text-xl font-bold sm:text-2xl">{dragging ? "Relâchez pour importer" : "Déposez votre vidéo ici"}</p>
                 <p className="relative text-sm text-[#6b7a70]">ou cliquez pour parcourir vos fichiers</p>
@@ -352,7 +359,7 @@ export default function App() {
               disabled={!file || busy}
               className="btn-shine flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-[#C86D51] to-[#B55B40] px-6 py-4 text-base font-bold text-white shadow-lg shadow-[#C86D51]/35 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#C86D51]/45 active:scale-[0.98] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
             >
-              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <AudioLines className="h-5 w-5" />}
+              {busy ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <AudioLines className="h-5 w-5" />}
               {busy ? "Conversion en cours…" : "Extraire l'audio"}
             </button>
 
@@ -372,7 +379,7 @@ export default function App() {
             {/* Erreur */}
             {status === "error" && (
               <div className="anim-pop flex items-start gap-3 rounded-2xl border border-[#C86D51]/30 bg-[#C86D51]/10 p-4 text-sm text-[#B55B40]">
-                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
                 <p>{error}</p>
               </div>
             )}
@@ -454,7 +461,7 @@ function ResultCard({ result, onReset }) {
     <div className="anim-pop space-y-5 rounded-3xl border border-[#849B89]/25 bg-gradient-to-br from-[#F8F4EE] to-[#F3EDE4] p-5 shadow-lg shadow-[#849B89]/10">
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#849B89]/20 text-[#6E8574]">
-          <CheckCircle2 className="h-6 w-6" />
+          <CircleCheck className="h-6 w-6" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="ff-display text-lg font-bold leading-tight">Terminé en {result.elapsed.toFixed(1)} s</p>
